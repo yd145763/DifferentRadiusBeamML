@@ -22,7 +22,8 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Activation
 
 file_list = "grating12pitch100", "grating12_11pitch6_4", "grating012umpitch05dutycycle60um"
-steps = 20
+file_path = "C:\\Users\\ADMIN\\Downloads\\"
+steps = 10
 df_main = pd.DataFrame()
 
 R = 20, 40, 50, 60
@@ -37,7 +38,7 @@ R_training_norm = R_norm[R_norm != R_validation_norm]
 R_training_norm = round(R_training_norm, 5)
 
 for r in R:
-    df_df = pd.read_csv("C:\\Users\\ADMIN\\Downloads\\grating012umpitch05dutycycle"+str(r)+"um2d.csv")
+    df_df = pd.read_csv(file_path+"grating012umpitch05dutycycle"+str(r)+"um2d.csv")
         
     x1 = np.linspace(0, 50, num=df_df.shape[1])
     y = np.linspace(-25, 25, num =df_df.shape[0])
@@ -88,6 +89,9 @@ ape_list = []
 train_test_ape = []
 RMS = []
 mae_list = []
+train_test_mae = []
+
+df_training_validation = pd.DataFrame()
 
 for dense_layer in dense_layers:
         for layer_size in layer_sizes:
@@ -105,7 +109,7 @@ for dense_layer in dense_layers:
                 df_main = pd.DataFrame()
 
                 for r in R:
-                    df_df = pd.read_csv("C:\\Users\\ADMIN\\Downloads\\grating012umpitch05dutycycle"+str(r)+"um2d.csv")    
+                    df_df = pd.read_csv(file_path+"grating012umpitch05dutycycle"+str(r)+"um2d.csv")    
                     x1 = np.linspace(0, 50, num=df_df.shape[1])[::steps]
                     y = np.linspace(-25, 25, num =df_df.shape[0])[::steps]
                     df = pd.DataFrame()
@@ -172,15 +176,21 @@ for dense_layer in dense_layers:
 
             training_loss = pd.Series(history.history['loss'])
             validation_loss = pd.Series(history.history['val_loss'])
+            
+            df_training_validation['T'+'_N'+str(layer_size)+'_L'+str(dense_layer)] = training_loss
+            df_training_validation['V'+'_N'+str(layer_size)+'_L'+str(dense_layer)] = validation_loss
 
             rms = calculate_rms_error(validation_loss[50:])
 
             
-            diff = (validation_loss - training_loss).abs()
+            diff = (validation_loss[50:] - training_loss[50:]).abs()
             rel_error = diff / training_loss
             pct_error = rel_error * 100
             ape = pct_error.mean()
             train_test_ape.append(ape)
+            
+            mae = mean_absolute_error(validation_loss[50:], training_loss[50:])
+            train_test_mae.append(mae)
 
             
             epochs = range(1, 100 + 1)
@@ -266,8 +276,8 @@ for dense_layer in dense_layers:
                 
                 df_predicted_contour[n] = df_predicted_n_filtered['e']
             
-            df_predicted_contour.to_csv("C:\\Users\\ADMIN\\Downloads\\model_nodes"+str(layer_size)+"_layers"+str(dense_layer)+".csv")
-            model.save("C:\\Users\\ADMIN\\Downloads\\model_nodes"+str(layer_size)+"_layers"+str(dense_layer))
+            df_predicted_contour.to_csv(file_path+"model_nodes"+str(layer_size)+"_layers"+str(dense_layer)+".csv")
+            model.save(file_path+"model_nodes"+str(layer_size)+"_layers"+str(dense_layer))
             
             df_actual_benchmark = df_main_main[df_main_main['radius'] == R_validation]
             
@@ -298,17 +308,21 @@ df_result['nodes'] = nodes
 df_result['layers'] = layers1
 df_result['ape'] = ape_list
 df_result['maee'] = mae_list
+df_result['train_test_ape'] = train_test_ape
+df_result['train_test_mae'] = train_test_mae
+df_result.to_csv(file_path+"model_optimization_result.csv")
+df_training_validation.to_csv(file_path+"df_training_validation.csv")
 
 min_index = df_result['ape'].idxmin()
 dense_layer_op = df_result.iloc[min_index, 1]
 layer_size_op = df_result.iloc[min_index, 0]
 
-r = 20
+df_training_validation_full = pd.DataFrame()
 
 df_main_main_full = pd.DataFrame()
 for r in R:
     file = "grating012umpitch05dutycycle"+str(r)+"um"
-    hdf5_file = "C:\\Users\\ADMIN\\Downloads\\"+file+".h5"
+    hdf5_file = file_path+file+".h5"
     # Load the h5 file
     with h5py.File(hdf5_file, 'r') as f:
         # Get the dataset
@@ -394,15 +408,8 @@ print(history.history['loss'])
 training_loss = pd.Series(history.history['loss'])
 validation_loss = pd.Series(history.history['val_loss'])
 
-rms = calculate_rms_error(validation_loss[50:])
-
-
-diff = (validation_loss - training_loss).abs()
-rel_error = diff / training_loss
-pct_error = rel_error * 100
-ape = pct_error.mean()
-train_test_ape.append(ape)
-
+df_training_validation_full['training_loss'] = training_loss
+df_training_validation_full['validation_loss'] = validation_loss
 
 epochs = range(1, 100 + 1)
 
@@ -432,44 +439,80 @@ plt.legend(["Training_loss", "Validation Loss"], prop={'weight': 'bold','size': 
 plt.title("Training/Validation Loss\n"+NAME, fontweight = 'bold')
 plt.show()
 plt.close()
-    
-    
-    
-    """
 
-        
-    x1 = np.linspace(0, 50, num=arr_3d_loaded.shape[1])
-    y = np.linspace(-25, 25, num =arr_3d_loaded.shape[0])
-    z = np.linspace(-5+(50/arr_3d_loaded.shape[2])*z_cutoff, 45, num =arr_3d_loaded.shape[2]-z_cutoff)
-    
-    z_plane_df = arr_3d_loaded[:,:,i]
-    df1 = z_plane_df
+diff = (validation_loss[50:] - training_loss[50:]).abs()
+rel_error = diff / training_loss
+pct_error = rel_error * 100
+ape = pct_error.mean()
 
-    
-    colorbarmax = df1.max().max()
-    
-    X,Y = np.meshgrid(x1,y)
-    fig = plt.figure(figsize=(5, 4))
-    ax = plt.axes()
-    cp=ax.contourf(X,Y,df1, 200, zdir='z', offset=-100, cmap='viridis')
-    clb=fig.colorbar(cp, ticks=(np.around(np.linspace(0.0, colorbarmax, num=6), decimals=3)).tolist())
-    clb.ax.set_title('Electric Field (eV)', fontweight="bold")
-    for l in clb.ax.yaxis.get_ticklabels():
-        l.set_weight("bold")
-        l.set_fontsize(15)
-    ax.set_xlabel('x-position (µm)', fontsize=20, fontweight="bold", labelpad=1)
-    ax.set_ylabel('y-position (µm)', fontsize=20, fontweight="bold", labelpad=1)
-    ax.xaxis.label.set_fontsize(20)
-    ax.xaxis.label.set_weight("bold")
-    ax.yaxis.label.set_fontsize(20)
-    ax.yaxis.label.set_weight("bold")
-    ax.tick_params(axis='both', which='major', labelsize=20)
-    ax.set_yticklabels(ax.get_yticks(), weight='bold')
-    ax.set_xticklabels(ax.get_xticks(), weight='bold')
-    ax.xaxis.set_major_formatter(StrMethodFormatter('{x:,.0f}'))
-    ax.yaxis.set_major_formatter(StrMethodFormatter('{x:,.0f}'))
+mae = mean_absolute_error(validation_loss[50:], training_loss[50:])
 
-    plt.show()
-    plt.close()
-    """
+rms = calculate_rms_error(validation_loss[50:])
 
+
+predictions = model.predict(X_test)
+
+df_predicted_norm = np.hstack((X_test, predictions)) 
+df_predicted = scaler.inverse_transform(df_predicted_norm)
+df_predicted[:, 2] = np.round(df_predicted[:, 2], decimals=0)
+df_pd_predicted = pd.DataFrame(df_predicted)
+df_pd_predicted.columns = df_main_main_full.columns
+model.save(file_path+"3dmodel_nodes"+str(layer_size_op)+"_layers"+str(dense_layer_op))
+df_pd_predicted.to_csv(file_path+"50um_validation_full_prediction.csv")
+
+R_prediction = 30
+file = "grating012umpitch05dutycycle"+str(R_prediction)+"um"
+hdf5_file = file_path+file+".h5"
+# Load the h5 file
+with h5py.File(hdf5_file, 'r') as f:
+    # Get the dataset
+    dset = f[file]
+    # Load the dataset into a numpy array
+    arr_3d_loaded = dset[()]
+
+z_cutoff = 96
+I = np.arange(z_cutoff,arr_3d_loaded.shape[2],1)
+
+df_main_main = pd.DataFrame()
+for i in I[::steps]:
+    df_df = arr_3d_loaded[:,:,i]
+    df_df = pd.DataFrame(df_df)
+    df_main = pd.DataFrame()
+    for n in N[::steps]:
+        x1 = np.linspace(0, 50, num=df_df.shape[1])[::steps]
+        y = np.linspace(-25, 25, num =df_df.shape[0])[::steps]
+        df = pd.DataFrame()
+        df['y'] = y
+        df['radius'] = R_prediction
+        df['n'] = n
+        df['i'] = i
+        e = df_df.iloc[:,0]
+        e = e[::steps]
+        e.reset_index(drop=True, inplace=True)
+        df['e'] = e
+        df_main = pd.concat([df_main, df], axis= 0)
+    df_main_main = pd.concat([df_main_main, df_main], axis= 0)
+
+scaler = MinMaxScaler()
+df_main_main_norm = scaler.fit_transform(df_main_main)
+df_main_main_norm = pd.DataFrame(df_main_main_norm)
+df_main_main_norm[1] = (R_prediction - min(R))/(max(R) - min(R))
+df_main_main_norm = df_main_main_norm.round(5)
+df_validation_norm = df_main_main_norm
+
+X_test = df_validation_norm.iloc[:, 0:-1]
+#X_test = X_test.values.astype(float)
+
+y_test = df_validation_norm.iloc[:, -1]
+y_test = pd.DataFrame(y_test)
+
+predictions = model.predict(X_test)
+
+df_predicted_norm = np.hstack((X_test, predictions)) 
+df_predicted = scaler.inverse_transform(df_predicted_norm)
+df_predicted[:, 2] = np.round(df_predicted[:, 2], decimals=0)
+df_pd_predicted = pd.DataFrame(df_predicted)
+df_pd_predicted.columns = df_main_main_full.columns
+df_pd_predicted['radius'] = df_pd_predicted['radius'].round(0) 
+df_pd_predicted.to_csv(file_path+"30um_full_prediction.csv")
+df_training_validation_full.to_csv(file_path+"training_validation_full.csv")
