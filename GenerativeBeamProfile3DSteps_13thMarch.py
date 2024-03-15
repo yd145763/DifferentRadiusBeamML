@@ -36,9 +36,9 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Activation
 
 file_list = "grating12pitch100", "grating12_11pitch6_4", "grating012umpitch05dutycycle60um"
-file_path = "C:\\Users\\ADMIN\\Downloads\\3dpredictiondata\\"
-file_path2 = "C:\\Users\\ADMIN\\Downloads\\"
-steps = 10
+file_path = "/home/grouptan/Documents/yudian/DNNPredictBeamData/"
+file_path2 = "/home/grouptan/Documents/yudian/DNNPredictBeamSource/"
+steps = 20
 df_main = pd.DataFrame()
 
 R = 20, 30, 40, 50, 60
@@ -407,6 +407,7 @@ for dense_layer in dense_layers:
             
             
             df_predicted[:, 2] = np.round(df_predicted[:, 2], decimals=0)
+            df_predicted[:, 3] = np.round(df_predicted[:, 3], decimals=0)
             df_predicted = pd.DataFrame(df_predicted)
             df_predicted.columns = df_main_main_full.columns
             
@@ -417,7 +418,7 @@ for dense_layer in dense_layers:
                 df_main_main = df_main_main_full[df_main_main_full['i'] ==i] 
                     
                 df_predicted_contour = pd.DataFrame()
-                
+                df_actual_contour = pd.DataFrame()
                 ape_n = []
                 mae_n = []
                 for n in N[::training_steps]:
@@ -425,11 +426,13 @@ for dense_layer in dense_layers:
                     df_main = df_main_main[df_main_main['n'] == n]
                     df = df_main[df_main['radius'] == R_validation]
                     df_predicted_i_n_filtered = df_predicted_i_filtered[df_predicted_i_filtered['n'] == n]
-                
+                    e_actual = pd.Series(df['e'].reset_index(drop=True))
+                    e_predicted = pd.Series(df_predicted_i_n_filtered['e'].reset_index(drop=True))
+                    
                     fig = plt.figure(figsize=(7, 4))
                     ax = plt.axes()
-                    ax.plot(df['y'], df['e'], color = "red")
-                    ax.plot(df_predicted_i_n_filtered['y'], df_predicted_i_n_filtered['e'], color = "blue") 
+                    ax.plot(df['y'], e_actual, color = "red")
+                    ax.plot(df_predicted_i_n_filtered['y'], e_predicted, color = "blue") 
                     #graph formatting     
                     ax.tick_params(which='major', width=2.00)
                     ax.tick_params(which='minor', width=2.00)
@@ -453,8 +456,6 @@ for dense_layer in dense_layers:
                     plt.show()
                     plt.close()
                     
-                    e_actual = pd.Series(df['e'].reset_index(drop=True))
-                    e_predicted = pd.Series(df_predicted_i_n_filtered['e'].reset_index(drop=True))
                     error = e_actual - e_predicted
                     percentage_error = (error.abs() / e_actual) * 100
                     ape = percentage_error.mean()
@@ -465,6 +466,7 @@ for dense_layer in dense_layers:
                     
                     e_predict = df_predicted_i_n_filtered['e'].reset_index(drop=True)
                     df_predicted_contour[n] = e_predict
+                    df_actual_contour[n] = e_actual
                 
                 ape_n_mean = sum(ape_n)/len(ape_n)
                 ape_n_mean_i_mean.append(ape_n_mean)
@@ -500,13 +502,14 @@ for dense_layer in dense_layers:
                 ax.yaxis.set_major_formatter(StrMethodFormatter('{x:,.0f}'))
                 plt.show()
                 plt.close()
-                df_predicted_contour.to_csv(file_path+"3dmultibeam_model_nodes"+str(layer_size)+"_layers"+str(dense_layer)+"_i"+str(i)+".csv")
-                
+                df_predicted_contour.to_csv(file_path+"3dpredictedmultibeam_model_nodes"+str(layer_size)+"_layers"+str(dense_layer)+"_i"+str(i)+".csv")
+                df_actual_contour.to_csv(file_path+"3dactualmultibeam_model_nodes"+str(layer_size)+"_layers"+str(dense_layer)+"_i"+str(i)+".csv")
+           
             total_ape_mean = sum(ape_n_mean_i_mean)/len(ape_n_mean_i_mean)
             ape_list.append(total_ape_mean)
             total_mae_mean = sum(mae_n_mean_i_mean)/len(mae_n_mean_i_mean)
             mae_list.append(total_mae_mean)
-            df_predicted_contour.to_csv(file_path+"3dmultibeam_model_nodes"+str(layer_size)+"_layers"+str(dense_layer)+".csv")
+            
             model.save(file_path+"3dmultisinglebeam_model_nodes"+str(layer_size)+"_layers"+str(dense_layer))
     
 df_results['nodes'] = nodes
@@ -517,6 +520,7 @@ df_results['mae_list'] = mae_list
 df_results['train_test_mae'] = train_test_mae
 df_results['time_list'] = time_list
 df_results.to_csv(file_path+"optimization_result.csv")
+df_training_validation.to_csv(file_path+"training_validation_result.csv")
             
             
 #===================================================================            
